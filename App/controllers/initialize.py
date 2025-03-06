@@ -1,4 +1,8 @@
 from .user import create_user
+from .admin import create_admin
+from .student import create_student
+from .semester import create_semester
+# from .shift import create_shift
 from .notification import (
     create_notification,
     notify_shift_approval,
@@ -18,19 +22,16 @@ def initialize():
     db.create_all()
     
     # Create default admin account
-
-    admin = create_user('a', '123', type='admin')
+    admin = create_admin('a', '123')
     
     # Create default volunteer/assistant account
-    student = create_user('8', 'a', type='student')
-
+    student = create_student('8', 'a', 'BSc')
 
     # Create sample notifications for demo purposes
     create_sample_notifications(admin.username, student.username)
     
     print('Database initialized with default accounts:')
-
-
+    
     print(admin.get_json(), "Password: 123")
     print(student.get_json(), "Password: a")
 
@@ -77,3 +78,9 @@ def create_sample_notifications(admin_username, student_username):
         db.session.add(notification)
     
     db.session.commit()
+
+
+def create_sample_semester():
+    semester = create_semester('2025-01-19', '2025-05-09')
+    print(semester.get_json())
+

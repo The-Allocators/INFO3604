@@ -138,3 +138,7 @@ def help_desk_scheduler(I, J, K):
 
 def lab_assistant_scheduler():
     pass
+
+
+def create_schedule():
+    pass
