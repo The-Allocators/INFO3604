@@ -1,3 +1,6 @@
+from App.models import Schedule, Shift, Allocation, Availability
+from App.database import db
+from datetime import datetime
 from ortools.sat.python import cp_model
 
 def help_desk_scheduler(I, J, K):
@@ -140,5 +143,14 @@ def lab_assistant_scheduler():
     pass
 
 
-def create_schedule():
-    pass
+def create_schedule(semester, week, start, end):
+    start_date = datetime.strptime(start, '%Y-%m-%d')
+    end_date = datetime.strptime(end, '%Y-%m-%d')
+    
+    new_schedule = Schedule(semester, week, start_date, end_date)
+    db.session.add(new_schedule)
+    db.session.commit()
+    return new_schedule
+
+
+    

@@ -11,3 +11,9 @@ def create_semester(start, end):
     db.session.commit()
     return new_semester
 
+def get_semester(id):
+    return Semester.query.filter_by(id=id).first()
+
+def get_semester(academic_year, semester):
+    return Semester.query.filter_by(academic_year=academic_year, semester=semester).first()
+

@@ -1,7 +1,8 @@
 from .user import create_user
 from .admin import create_admin
 from .student import create_student
-from .semester import create_semester
+from .schedule import create_schedule
+from .semester import create_semester, get_semester
 # from .shift import create_shift
 from .notification import (
     create_notification,
@@ -29,6 +30,12 @@ def initialize():
 
     # Create sample notifications for demo purposes
     create_sample_notifications(admin.username, student.username)
+    
+    # Create sample semester
+    create_sample_semester()
+    
+    # Create sample schedule
+    create_sample_schedule()
     
     print('Database initialized with default accounts:')
     
@@ -82,5 +89,9 @@ def create_sample_notifications(admin_username, student_username):
 
 def create_sample_semester():
     semester = create_semester('2025-01-19', '2025-05-09')
-    print(semester.get_json())
 
+
+def create_sample_schedule():
+    semester = get_semester('2024/2025', '2')
+    if semester:
+        schedule = create_schedule(semester.id, 1, '2025-01-20', '2025-01-26')

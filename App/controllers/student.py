@@ -7,3 +7,6 @@ def create_student(username, password, degree):
     db.session.commit()
     return new_student
 
+def get_student(username):
+    return Student.query.filter_by(username=username).first()
+
