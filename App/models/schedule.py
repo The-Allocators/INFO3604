@@ -1,4 +1,5 @@
 from App.database import db
+from datetime import datetime
 
 class Schedule(db.Model):
     __tablename__ = 'schedule'
@@ -8,7 +9,7 @@ class Schedule(db.Model):
     start = db.Column(db.DateTime, nullable=False)
     end = db.Column(db.DateTime, nullable=False)
     
-    def __init__(self, week, start, end):
+    def __init__(self, week, start:datetime, end:datetime):
         self.week = week
         self.start = start
         self.end = end

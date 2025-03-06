@@ -1,4 +1,5 @@
 from App.database import db
+from datetime import datetime
 
 class Shift(db.Model):
     __tablename__ = 'shift'
@@ -8,7 +9,7 @@ class Shift(db.Model):
     start = db.Column(db.DateTime, nullable=False)
     end = db.Column(db.DateTime, nullable=False)
     
-    def __init__(self, date, start, end, employee_id):
+    def __init__(self, date:datetime, start:datetime, end:datetime):
         self.date = date
         self.start = start
         self.end = end
