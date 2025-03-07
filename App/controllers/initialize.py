@@ -1,7 +1,8 @@
+from datetime import datetime, timedelta
 from .user import create_user
 from .admin import create_admin
 from .student import create_student
-from .schedule import create_schedule
+from .schedule import create_schedule, create_schedule_shifts, get_schedule, get_semester_schedules
 from .semester import create_semester, get_semester
 # from .shift import create_shift
 from .notification import (
@@ -35,7 +36,10 @@ def initialize():
     create_sample_semester()
     
     # Create sample schedule
-    create_sample_schedule()
+    create_sample_schedules()
+    
+    # Create sample shifts
+    create_sample_shifts()
     
     print('Database initialized with default accounts:')
     
@@ -91,7 +95,33 @@ def create_sample_semester():
     semester = create_semester('2025-01-19', '2025-05-09')
 
 
-def create_sample_schedule():
+def create_sample_schedules():
     semester = get_semester('2024/2025', '2')
     if semester:
-        schedule = create_schedule(semester.id, 1, '2025-01-20', '2025-01-26')
+        schedules = []
+        start_date = datetime.strptime('2025-01-20', '%Y-%m-%d')
+        end_date = datetime.strptime('2025-01-26', '%Y-%m-%d')
+        
+        # Create 12 schedules for the semester
+        for i in range(12):
+            schedule = create_schedule(semester.id, i+1, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            schedules.append(schedule)
+            
+            start_date += timedelta(weeks=1)
+            end_date += timedelta(weeks=1)
+
+        return schedules
+
+
+def create_sample_shifts():
+    semester = get_semester('2024/2025', '2')
+    print(semester.get_json())
+    if semester:
+        schedules = get_semester_schedules(semester.id)
+        if schedules:
+            for schedule in schedules:
+                create_schedule_shifts(schedule)
+        
+        return schedules
+
+

@@ -21,6 +21,6 @@ class Semester(db.Model):
             'Semester ID': self.id,
             'Academic Year': self.academic_year,
             'Semester': self.semester,
-            'Start Date': self.start.date(),
-            'End Date': self.end.date()
+            'Start Date': self.start.date().strftime("%d-%m-%Y"),
+            'End Date': self.end.date().strftime("%d-%m-%Y")
         }

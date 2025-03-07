@@ -17,7 +17,7 @@ class Shift(db.Model):
     def get_json(self):
         return {
             'Shift ID': self.id,
-            'Date': self.date,
-            'Start Time': self.start,
-            'End Time': self.end,
+            'Date': self.date.date().strftime("%d-%m-%Y"),
+            'Start Time': self.start.time().strftime("%I:%M"),
+            'End Time': self.end.time().strftime("%I:%M"),
         }

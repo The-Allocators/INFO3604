@@ -21,7 +21,7 @@ class Schedule(db.Model):
             'Schedule ID': self.id,
             'Semester ID': self.semester,
             'Week': self.week,
-            'Start Date': self.start.date(),
-            'End Date': self.end.date()
+            'Start Date': self.start.date().strftime("%d-%m-%Y"),
+            'End Date': self.end.date().strftime("%d-%m-%Y")
         }
 

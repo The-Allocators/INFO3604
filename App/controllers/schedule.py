@@ -1,6 +1,7 @@
 from App.models import Schedule, Shift, Allocation, Availability
 from App.database import db
-from datetime import datetime
+from .shift import create_shift
+from datetime import datetime, timedelta, time
 from ortools.sat.python import cp_model
 
 def help_desk_scheduler(I, J, K):
@@ -153,4 +154,24 @@ def create_schedule(semester, week, start, end):
     return new_schedule
 
 
+def create_schedule_shifts(schedule):
+    # Define start and end times for shifts
+    start_hours = 8
     
+    # Create shifts from Monday to Friday
+    for day in range(5):
+        for shift in range(9):
+            date = (schedule.start.date() + timedelta(days=day))
+            new_shift = create_shift(date, datetime.combine(date, time(start_hours, 0)), datetime.combine(date, time(start_hours + 1, 0)))
+            start_hours += 1
+        
+        start_hours = 8
+    
+
+def get_schedule(id):
+    return Schedule.query.filter_by(id=id).first()
+
+
+def get_semester_schedules(semester):
+    return Schedule.query.filter_by(semester=semester).all()
+
