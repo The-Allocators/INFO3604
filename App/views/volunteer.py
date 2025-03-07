@@ -32,11 +32,18 @@ def dashboard():
     # In a real application, this data would be pulled from your database
     # or calculated by your scheduling algorithm
     days_of_week = ['MON', 'TUE', 'WED', 'THUR', 'FRI']
-    time_slots = ['9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm']
+    time_slots = ['8:00 am', '9:00 am', '10:00 am', '11:00 am', '12:00 pm', '1:00 pm', '2:00 pm', '3:00 pm', '4:00 pm']
     
     # Sample staff assignments - in reality this would come from your database
     # Make sure all time slots in time_slots are defined here
     staff_schedule = {
+        '8:00 am': {
+            'MON': ['Emily Davis', 'Michael Brown'],
+            'TUE': ['Emily Davis', 'Michael Brown'],
+            'WED': ['Emily Davis', 'Michael Brown'],
+            'THUR': ['Emily Davis', 'Michael Brown'],
+            'FRI': ['Emily Davis', 'Michael Brown']
+        },
         '9:00 am': {
             'MON': ['Liam Johnson', 'Joshua Anderson', 'Daniel Martinez'],
             'TUE': ['Liam Johnson', 'Joshua Anderson'],
@@ -369,7 +376,7 @@ def update_availability():
 # This function allows us to use your friend's scheduler without modifying it
 def get_schedule_with_original_scheduler():
     # Import the original scheduler function safely
-    from App.controllers.scheduler import help_desk_scheduler
+    from App.controllers.schedule import help_desk_scheduler
     
     # Call the original scheduler with default parameters
     I, J, K = 10, 45, 1
