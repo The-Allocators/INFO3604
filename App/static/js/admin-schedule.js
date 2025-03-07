@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
               </div>
               <div class="stat-item">
                 <div class="stat-label">Total Shifts:</div>
-                <div class="stat-value">40</div>
+                <div class="stat-value">45</div>
               </div>
               <div class="stat-item">
                 <div class="stat-label">Schedule Type:</div>
@@ -475,8 +475,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const scheduleBody = document.getElementById('scheduleBody');
     scheduleBody.innerHTML = '';
     
-    // For the help desk, we have hourly slots from 9am to 4pm
-    const timeSlots = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
+    // For the help desk, we have hourly slots from 8am to 4pm
+    const timeSlots = ["8:00 am", "9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
                       "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm"];
     
     // Create a row for each time slot
