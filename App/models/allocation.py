@@ -12,8 +12,9 @@ class Allocation(db.Model):
     schedules = db.relationship('Schedule', backref=db.backref('allocation', lazy=True))
     shifts = db.relationship('Shift', backref=db.backref('allocation', lazy=True))
     
-    def __init__(self, username, shift):
+    def __init__(self, username, schedule, shift):
         self.username = username
+        self.schedule = schedule
         self.shift = shift
     
     def get_json(self):

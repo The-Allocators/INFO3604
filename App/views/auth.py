@@ -80,5 +80,5 @@ def user_login_api():
 @jwt_required()
 def identify_user():
     return jsonify({
-        'message': f"username: {current_user.username}, id: {current_user.id}, role: {current_user.role}"
+        'message': f"Username: {current_user.username}, Type: {current_user.type}"
     })
