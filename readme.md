@@ -1,3 +1,21 @@
+# Help Desk Rostering & Claiming Project
+The UWI DCIT Help Desk is currently managed manually, and our project aims to create a website that, with the help of a model, can generate the weekly schedules needed automate the other parts of Help Desk management.
+To achieve this goal, we created a framework that can accept an optimization model to generate schedules, this framework is made in such a way that different models can be swapped in and out to deal with different situations.
+## The Model
+This is currently the model that is being used for the Help Desk website:
+ 
+Where:
+*i* = staff index (*i* = 1 · · · *I*)
+*j* = shift index (*j* = 1 · · · *J*)
+*k* = course index (*k* = 1 · · · *K*)
+*t<sub>i,k</sub>* = 1 if staff *i* can help with course *k*, 0 otherwise
+*d<sub>j,k</sub>* = the desired number of tutors who can help with course *k* in shift *j*
+*w<sub>j,k</sub>* = a weight set by the administrator indicating how important an assignment to for course *k* is, default is *w<sub>j,k</sub>* = *d<sub>j,k<sub>*
+*a<sub>i,j</sub>* = 1 if tutor *i* is available to work shift *j*, 0 otherwise
+*x<sub>i,j</sub>* = 1 if staff *i* is assigned to shift *j*, 0 otherwise
+
+
+
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/The-Allocators/INFO3604)
 <a href="https://render.com/deploy?repo=https://github.com/uwidcit/flaskmvc">
   <img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render">
