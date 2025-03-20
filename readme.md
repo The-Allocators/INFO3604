@@ -6,15 +6,39 @@ To achieve this goal, we created a framework that can accept an optimization mod
 ## The Model
 This is currently the model that is being used for the Help Desk website:  
 
+$$
+\min \sum_{j}^{J} \sum_{k}^{K} \left( d_{j,k} - \sum_{i}^{I} x_{i,j} t_{i,k} \right) w_{j,k}
+$$
+
+### Subject to:
+
+$$
+\sum_{i}^{I} x_{i,j} t_{i,k} \leq d_{j,k}, \quad \text{for all } j,k \text{ pairs}
+$$
+
+$$
+\sum_{j}^{J} x_{i,j} \geq 4, \quad \text{for all } i
+$$
+
+$$
+\sum_{i}^{I} x_{i,j} \geq 2, \quad \text{for all } j
+$$
+
+$$
+x_{i,j} \leq a_{i,j}, \quad \text{for all } i
+$$
+
+
+
 Where:  
 
 *i* = staff index (*i* = 1 · · · *I*)  
 *j* = shift index (*j* = 1 · · · *J*)  
-*k* = course index (*k* = 1 · · · *K*)
-*t<sub>i,k</sub>* = 1 if staff *i* can help with course *k*, 0 otherwise
-*d<sub>j,k</sub>* = the desired number of tutors who can help with course *k* in shift *j*
-*w<sub>j,k</sub>* = a weight set by the administrator indicating how important an assignment to for course *k* is, default is *w<sub>j,k</sub>* = *d<sub>j,k<sub>*
-*a<sub>i,j</sub>* = 1 if tutor *i* is available to work shift *j*, 0 otherwise
+*k* = course index (*k* = 1 · · · *K*)  
+*t<sub>i,k</sub>* = 1 if staff *i* can help with course *k*, 0 otherwise  
+*d<sub>j,k</sub>* = the desired number of tutors who can help with course *k* in shift *j*  
+*w<sub>j,k</sub>* = a weight set by the administrator indicating how important an assignment to for course *k* is, default is *w<sub>j,k</sub>* = *d<sub>j,k<sub>*  
+*a<sub>i,j</sub>* = 1 if tutor *i* is available to work shift *j*, 0 otherwise  
 *x<sub>i,j</sub>* = 1 if staff *i* is assigned to shift *j*, 0 otherwise
 
 
