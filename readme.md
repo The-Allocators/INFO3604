@@ -39,8 +39,15 @@ Where:
 *d<sub>j,k</sub>* = the desired number of tutors who can help with course *k* in shift *j*  
 *w<sub>j,k</sub>* = a weight set by the administrator indicating how important an assignment to for course *k* is, default is *w<sub>j,k</sub>* = *d<sub>j,k<sub>*  
 *a<sub>i,j</sub>* = 1 if tutor *i* is available to work shift *j*, 0 otherwise  
-*x<sub>i,j</sub>* = 1 if staff *i* is assigned to shift *j*, 0 otherwise
+*x<sub>i,j</sub>* = 1 if staff *i* is assigned to shift *j*, 0 otherwise  
 
+## Dependencies & Installation
+* Python3/pip3
+* Packages listed in requirements.txt
+
+```bash
+$ pip install -r requirements.txt
+```
 
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/The-Allocators/INFO3604)
@@ -53,15 +60,6 @@ Where:
 # Flask MVC Template
 A template for flask applications structured in the Model View Controller pattern [Demo](https://dcit-flaskmvc.herokuapp.com/). [Postman Collection](https://documenter.getpostman.com/view/583570/2s83zcTnEJ)
 
-
-# Dependencies
-* Python3/pip3
-* Packages listed in requirements.txt
-
-# Installing Dependencies
-```bash
-$ pip install -r requirements.txt
-```
 
 # Configuration Management
 
