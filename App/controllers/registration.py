@@ -1,11 +1,11 @@
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash
-from App.models import RegistrationRequest, RegistrationCourse, Student, User, HelpDeskAssistant, CourseCapability, Notification
+from App.models import RegistrationRequest, RegistrationCourse, Student, User, HelpDeskAssistant, CourseCapability, Notification, Availability
 from App.database import db
 from App.controllers.user import create_user
 from App.controllers.notification import create_notification, Notification
 import os
-from datetime import datetime
+from datetime import datetime, time
 
 def create_registration_request(username, name, email, degree, reason=None, phone=None, transcript_file=None, courses=None, password=None):
     """Create a new registration request with password"""
@@ -23,6 +23,7 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         # Handle transcript file upload
         transcript_path = None
         if transcript_file and transcript_file.filename:
+            from werkzeug.utils import secure_filename
             filename = secure_filename(transcript_file.filename)
             timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
             filename = f"{username}_{timestamp}_{filename}"
@@ -76,35 +77,6 @@ def create_registration_request(username, name, email, degree, reason=None, phon
         db.session.rollback()
         print(f"Error creating registration request: {e}")
         return False, f"An error occurred: {str(e)}"
-    
-    
-def get_all_registration_requests():
-    """Get all registration requests grouped by status"""
-    pending = RegistrationRequest.query.filter_by(status='PENDING').order_by(RegistrationRequest.created_at.desc()).all()
-    approved = RegistrationRequest.query.filter_by(status='APPROVED').order_by(RegistrationRequest.processed_at.desc()).all()
-    rejected = RegistrationRequest.query.filter_by(status='REJECTED').order_by(RegistrationRequest.processed_at.desc()).all()
-    
-    return {
-        'pending': pending,
-        'approved': approved,
-        'rejected': rejected
-    }
-
-def get_registration_request(request_id):
-    """Get a specific registration request by ID"""
-    registration = RegistrationRequest.query.get(request_id)
-    if not registration:
-        return None
-    
-    # Get the courses associated with this request
-    courses = RegistrationCourse.query.filter_by(registration_id=request_id).all()
-    course_codes = [course.course_code for course in courses]
-    
-    # Build full registration data
-    registration_data = registration.get_json()
-    registration_data['course_codes'] = course_codes
-    
-    return registration_data
 
 def approve_registration(request_id, admin_username):
     """
@@ -197,6 +169,11 @@ def approve_registration(request_id, admin_username):
         
         # Commit the transaction
         transaction.commit()
+        
+        # After successful approval, also transfer over any availability settings
+        availability_records = Availability.query.filter_by(username=username).all()
+        print(f"Found {len(availability_records)} availability records to transfer for {username}")
+        
         return True, "Registration approved successfully"
         
     except Exception as e:
@@ -231,3 +208,33 @@ def reject_registration(request_id, admin_username):
         db.session.rollback()
         print(f"Error rejecting registration: {e}")
         return False, f"An error occurred: {str(e)}"
+    
+    
+def get_all_registration_requests():
+    """Get all registration requests grouped by status"""
+    pending = RegistrationRequest.query.filter_by(status='PENDING').order_by(RegistrationRequest.created_at.desc()).all()
+    approved = RegistrationRequest.query.filter_by(status='APPROVED').order_by(RegistrationRequest.processed_at.desc()).all()
+    rejected = RegistrationRequest.query.filter_by(status='REJECTED').order_by(RegistrationRequest.processed_at.desc()).all()
+    
+    return {
+        'pending': pending,
+        'approved': approved,
+        'rejected': rejected
+    }
+
+def get_registration_request(request_id):
+    """Get a specific registration request by ID"""
+    registration = RegistrationRequest.query.get(request_id)
+    if not registration:
+        return None
+    
+    # Get the courses associated with this request
+    courses = RegistrationCourse.query.filter_by(registration_id=request_id).all()
+    course_codes = [course.course_code for course in courses]
+    
+    # Build full registration data
+    registration_data = registration.get_json()
+    registration_data['course_codes'] = course_codes
+    
+    return registration_data
+
