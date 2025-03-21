@@ -33,6 +33,7 @@ def register_action():
         # Extract form data
         username = request.form.get('username')
         password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
         name = request.form.get('name')
         email = request.form.get('email')
         phone = request.form.get('phone')
@@ -50,9 +51,34 @@ def register_action():
             flash('You must agree to the terms before registering.', 'error')
             return redirect(url_for('auth_views.register'))
         
-        # Create registration request
+        # Validate password matches confirmation
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return redirect(url_for('auth_views.register'))
+        
+        # Validate password strength (similar to client-side validation)
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'error')
+            return redirect(url_for('auth_views.register'))
+            
+        # Check for uppercase letter
+        if not any(c.isupper() for c in password):
+            flash('Password must contain at least one uppercase letter.', 'error')
+            return redirect(url_for('auth_views.register'))
+            
+        # Check for digit
+        if not any(c.isdigit() for c in password):
+            flash('Password must contain at least one number.', 'error')
+            return redirect(url_for('auth_views.register'))
+            
+        # Check for special character
+        if not any(not c.isalnum() for c in password):
+            flash('Password must contain at least one special character.', 'error')
+            return redirect(url_for('auth_views.register'))
+        
+        # Create registration request with password
         success, message = create_registration_request(
-            username, name, email, degree, reason, phone, transcript_file, selected_courses
+            username, name, email, degree, reason, phone, transcript_file, selected_courses, password
         )
         
         if success:
@@ -64,7 +90,7 @@ def register_action():
             
     except Exception as e:
         flash(f'An error occurred during registration: {str(e)}', 'error')
-        return redirect(url_for('auth_views.register_page'))
+        return redirect(url_for('auth_views.register'))
 
 @auth_views.route('/login', methods=['POST'])
 def login_action():

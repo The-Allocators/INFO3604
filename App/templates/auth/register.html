@@ -196,6 +196,25 @@
         text-decoration: underline;
     }
 
+    .password-requirements {
+        margin-top: 0.5rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    .password-requirements h4 {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .password-requirements ul {
+        padding-left: 1.5rem;
+        margin-bottom: 0;
+    }
+
     /* Make the page more responsive */
     @media (max-width: 992px) {
         .registration-container {
@@ -254,16 +273,10 @@
                         <div class="error-message" id="idError">Please enter a valid ID</div>
                     </div>
                     <div class="form-group">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" name="password" placeholder="Enter your password" required>
-                        <div class="error-message" id="passwordError">Password is required</div>
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+                        <div class="error-message" id="nameError">Name is required</div>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="name">Full Name</label>
-                    <input type="text" id="name" name="name" placeholder="Enter your full name" required>
-                    <div class="error-message" id="nameError">Name is required</div>
                 </div>
                 
                 <div class="form-row">
@@ -276,6 +289,29 @@
                         <label for="phone">Phone Number</label>
                         <input type="text" id="phone" name="phone" placeholder="Enter your phone number">
                     </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" placeholder="Create a password" required>
+                        <div class="error-message" id="passwordError">Password is required</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
+                        <div class="error-message" id="confirmPasswordError">Passwords must match</div>
+                    </div>
+                </div>
+                
+                <div class="password-requirements">
+                    <h4>Password Requirements:</h4>
+                    <ul>
+                        <li>At least 8 characters long</li>
+                        <li>Contains at least one uppercase letter</li>
+                        <li>Contains at least one number</li>
+                        <li>Contains at least one special character</li>
+                    </ul>
                 </div>
                 
                 <div class="form-group">
@@ -337,6 +373,7 @@
         const registrationForm = document.getElementById('registrationForm');
         const idInput = document.getElementById('id');
         const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm_password');
         const nameInput = document.getElementById('name');
         const emailInput = document.getElementById('email');
         const degreeSelect = document.getElementById('degree');
@@ -366,16 +403,6 @@
                 idInput.style.borderColor = '#ddd';
             }
             
-            // Validate password
-            if (!passwordInput.value) {
-                document.getElementById('passwordError').style.display = 'block';
-                passwordInput.style.borderColor = '#dc3545';
-                isValid = false;
-            } else {
-                document.getElementById('passwordError').style.display = 'none';
-                passwordInput.style.borderColor = '#ddd';
-            }
-            
             // Validate name
             if (!nameInput.value) {
                 document.getElementById('nameError').style.display = 'block';
@@ -395,6 +422,46 @@
             } else {
                 document.getElementById('emailError').style.display = 'none';
                 emailInput.style.borderColor = '#ddd';
+            }
+            
+            // Validate password
+            if (!passwordInput.value) {
+                document.getElementById('passwordError').style.display = 'block';
+                passwordInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else if (passwordInput.value.length < 8) {
+                document.getElementById('passwordError').style.display = 'block';
+                document.getElementById('passwordError').textContent = 'Password must be at least 8 characters';
+                passwordInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else if (!/[A-Z]/.test(passwordInput.value)) {
+                document.getElementById('passwordError').style.display = 'block';
+                document.getElementById('passwordError').textContent = 'Password must contain at least one uppercase letter';
+                passwordInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else if (!/[0-9]/.test(passwordInput.value)) {
+                document.getElementById('passwordError').style.display = 'block';
+                document.getElementById('passwordError').textContent = 'Password must contain at least one number';
+                passwordInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else if (!/[^A-Za-z0-9]/.test(passwordInput.value)) {
+                document.getElementById('passwordError').style.display = 'block';
+                document.getElementById('passwordError').textContent = 'Password must contain at least one special character';
+                passwordInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('passwordError').style.display = 'none';
+                passwordInput.style.borderColor = '#ddd';
+            }
+            
+            // Validate password confirmation
+            if (passwordInput.value !== confirmPasswordInput.value) {
+                document.getElementById('confirmPasswordError').style.display = 'block';
+                confirmPasswordInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                document.getElementById('confirmPasswordError').style.display = 'none';
+                confirmPasswordInput.style.borderColor = '#ddd';
             }
             
             // Validate degree
@@ -424,7 +491,7 @@
         });
         
         // Clear errors on input
-        const inputs = [idInput, passwordInput, nameInput, emailInput];
+        const inputs = [idInput, nameInput, emailInput];
         inputs.forEach(input => {
             input.addEventListener('input', function() {
                 this.style.borderColor = '#ddd';
@@ -433,6 +500,32 @@
                     errorElement.style.display = 'none';
                 }
             });
+        });
+        
+        // Password validation on input
+        passwordInput.addEventListener('input', function() {
+            this.style.borderColor = '#ddd';
+            document.getElementById('passwordError').style.display = 'none';
+            
+            // Check password confirmation
+            if (confirmPasswordInput.value && this.value !== confirmPasswordInput.value) {
+                document.getElementById('confirmPasswordError').style.display = 'block';
+                confirmPasswordInput.style.borderColor = '#dc3545';
+            } else if (confirmPasswordInput.value) {
+                document.getElementById('confirmPasswordError').style.display = 'none';
+                confirmPasswordInput.style.borderColor = '#ddd';
+            }
+        });
+        
+        // Password confirmation validation on input
+        confirmPasswordInput.addEventListener('input', function() {
+            if (this.value !== passwordInput.value) {
+                document.getElementById('confirmPasswordError').style.display = 'block';
+                this.style.borderColor = '#dc3545';
+            } else {
+                document.getElementById('confirmPasswordError').style.display = 'none';
+                this.style.borderColor = '#ddd';
+            }
         });
         
         degreeSelect.addEventListener('change', function() {
