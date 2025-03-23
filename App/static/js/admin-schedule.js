@@ -8,9 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // --- Generate Schedule Button ---
   initializeGenerateButton();
   
-  // --- Publish Schedule Button ---
-  initializePublishButton();
-  
   // --- Save Changes Button ---
   initializeSaveChangesButton();
   
@@ -52,18 +49,18 @@ function loadCurrentSchedule() {
       loadingIndicator.style.display = 'none';
       
       if (data.status === 'success') {
-        // Store the schedule ID for saving changes and publishing
+        // Store the schedule ID for saving changes
         if (data.schedule_id) {
           document.body.setAttribute('data-schedule-id', data.schedule_id);
         }
         
         // Check if schedule is already published
         if (data.is_published) {
-          document.getElementById('publishSchedule').disabled = true;
-          document.getElementById('publishSchedule').textContent = 'Published';
-        } else {
-          document.getElementById('publishSchedule').disabled = false;
-          document.getElementById('publishSchedule').textContent = 'Publish Schedule';
+          // If already published, we'll still allow edits
+          const saveChangesBtn = document.getElementById('saveChanges');
+          if (saveChangesBtn) {
+            saveChangesBtn.textContent = 'Save & Update Students';
+          }
         }
         
         renderSchedule(data.schedule, data.staff_index);
@@ -465,7 +462,7 @@ function initializeGenerateButton() {
   const saveChangesBtn = document.createElement('button');
   saveChangesBtn.className = 'btn btn-primary';
   saveChangesBtn.id = 'saveChanges';
-  saveChangesBtn.textContent = 'Save Changes';
+  saveChangesBtn.textContent = 'Save & Update Students';
   saveChangesBtn.style.display = 'none'; // Hide initially
   
   // Insert the save button after the generate button
@@ -524,75 +521,6 @@ function initializeGenerateButton() {
   });
 }
 
-function initializePublishButton() {
-  const publishBtn = document.getElementById('publishSchedule');
-  
-  publishBtn.addEventListener('click', function() {
-    // Check if we have a schedule ID
-    const scheduleId = document.body.getAttribute('data-schedule-id');
-    
-    if (!scheduleId) {
-      alert('No schedule has been generated yet. Please generate a schedule first.');
-      return;
-    }
-    
-    // Check if there are unsaved changes
-    if (document.body.getAttribute('data-has-changes') === 'true') {
-      if (!confirm('You have unsaved changes. Please save your changes before publishing. Do you want to save now?')) {
-        return;
-      } else {
-        // Save changes first
-        saveScheduleChanges(() => {
-          // After saving, publish the schedule
-          publishSchedule(scheduleId);
-        });
-        return;
-      }
-    }
-    
-    // Confirm before publishing
-    if (!confirm('Are you sure you want to publish this schedule? This will notify all assigned staff.')) {
-      return;
-    }
-    
-    publishSchedule(scheduleId);
-  });
-}
-
-function publishSchedule(scheduleId) {
-  // Show loading state
-  const publishBtn = document.getElementById('publishSchedule');
-  publishBtn.disabled = true;
-  publishBtn.textContent = 'Publishing...';
-  
-  // Call the publish API
-  fetch(`/api/schedule/${scheduleId}/publish`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.status === 'success') {
-      // Update button state
-      publishBtn.textContent = 'Published';
-      alert('Schedule has been published and notifications sent to all assigned staff.');
-    } else {
-      // Reset button and show error
-      publishBtn.disabled = false;
-      publishBtn.textContent = 'Publish Schedule';
-      alert(`Failed to publish schedule: ${data.message}`);
-    }
-  })
-  .catch(error => {
-    console.error('Error publishing schedule:', error);
-    publishBtn.disabled = false;
-    publishBtn.textContent = 'Publish Schedule';
-    alert(`An error occurred: ${error.message || 'Unknown error'}`);
-  });
-}
-
 function initializeSaveChangesButton() {
   // The button is created in initializeGenerateButton
   const saveChangesBtn = document.getElementById('saveChanges');
@@ -645,7 +573,7 @@ function saveScheduleChanges(callback) {
       // Hide the save button
       saveChangesBtn.style.display = 'none';
       
-      alert('Schedule changes saved successfully.');
+      alert('Schedule updated and all students have been notified of their assignments.');
       
       // Call the callback if provided
       if (callback && typeof callback === 'function') {
@@ -803,4 +731,4 @@ Date.prototype.getWeek = function() {
   var weekNum = 1 + Math.ceil(dayDiff / 7);
 
   return weekNum;
-};
+}

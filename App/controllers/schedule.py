@@ -1,5 +1,5 @@
 from ortools.sat.python import cp_model
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from flask import jsonify
 
 from App.models import (
@@ -412,3 +412,108 @@ def get_assistants_for_shift(shift_id):
             })
     
     return assistants
+
+def update_schedule_and_publish(schedule_id, schedule_data):
+    """Update a schedule and automatically publish it to all students"""
+    try:
+        print(f"Updating schedule ID: {schedule_id}")
+        
+        # Get the schedule
+        schedule = Schedule.query.get(schedule_id)
+        if not schedule:
+            return {"status": "error", "message": "Schedule not found"}
+        
+        # Delete existing allocations for this schedule
+        old_allocations = Allocation.query.filter_by(schedule_id=schedule_id).all()
+        print(f"Deleting {len(old_allocations)} old allocations")
+        Allocation.query.filter_by(schedule_id=schedule_id).delete()
+        db.session.commit()
+        
+        # Process each day and shift
+        total_allocations = 0
+        for day_idx, day_data in enumerate(schedule_data):
+            day_name = day_data.get('day')
+            shifts = day_data.get('shifts', [])
+            
+            print(f"Processing day {day_idx} ({day_name}): {len(shifts)} shifts")
+            
+            for time_idx, shift_data in enumerate(shifts):
+                time_slot = shift_data.get('time')
+                staff_ids = shift_data.get('staff', [])
+                
+                if staff_ids:
+                    print(f"  - Shift at {time_slot}: {len(staff_ids)} staff members")
+                
+                # Find the corresponding shift
+                date = schedule.start_date + timedelta(days=day_idx)
+                hour = time_idx + 9  # 9am to 4pm
+                
+                shift = Shift.query.filter_by(
+                    schedule_id=schedule_id,
+                    date=date,
+                ).filter(
+                    Shift.start_time.between(
+                        datetime.combine(date.date(), time(hour=hour)),
+                        datetime.combine(date.date(), time(hour=hour, minute=15))
+                    )
+                ).first()
+                
+                if not shift and staff_ids:
+                    # If no shift exists but we have staff assigned, create a new shift
+                    print(f"    - Creating new shift for {date.date()} at {hour}:00")
+                    shift_start = datetime.combine(date.date(), time(hour=hour))
+                    shift_end = datetime.combine(date.date(), time(hour=hour+1))
+                    shift = Shift(date, shift_start, shift_end, schedule_id)
+                    db.session.add(shift)
+                    db.session.flush()  # Get the shift ID
+                elif not shift or not staff_ids:
+                    # Skip if no shift and no staff
+                    continue
+                else:
+                    print(f"    - Found existing shift ID {shift.id}")
+                
+                # Create allocations for each staff member
+                for staff_id in staff_ids:
+                    allocation = Allocation(staff_id, shift.id, schedule_id)
+                    db.session.add(allocation)
+                    total_allocations += 1
+        
+        # Explicitly set the schedule to published
+        if not schedule.is_published:
+            print(f"Publishing schedule {schedule_id}")
+            schedule.is_published = True
+            db.session.add(schedule)
+        else:
+            print(f"Schedule {schedule_id} was already published")
+        
+        # Commit all changes
+        db.session.commit()
+        print(f"Saved {total_allocations} allocations and published schedule")
+        
+        # Notify all assigned staff
+        from App.controllers.notification import notify_schedule_published
+        
+        # Get all unique students assigned to this schedule
+        allocations = Allocation.query.filter_by(schedule_id=schedule_id).all()
+        students = set(allocation.username for allocation in allocations)
+        
+        # Notify each student
+        for username in students:
+            notify_schedule_published(username, schedule.week_number)
+            print(f"Sent notification to {username}")
+        
+        return {
+            "status": "success",
+            "message": "Schedule updated and published successfully",
+            "schedule_id": schedule_id
+        }
+    
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "status": "error",
+            "message": f"Error updating schedule: {str(e)}"
+        }

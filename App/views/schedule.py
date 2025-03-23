@@ -2,11 +2,11 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from flask_jwt_extended import jwt_required, current_user
 from datetime import datetime, timedelta, time
 from App.controllers.schedule import (
-    # help_desk_scheduler,  # Commented out the old function
     generate_help_desk_schedule,
     publish_schedule,
     get_schedule_for_week,
-    help_desk_scheduler  # Using the new function
+    help_desk_scheduler,
+    update_schedule_and_publish
 )
 from App.models import db, Shift, Allocation, Schedule
 from App.middleware import admin_required
@@ -168,93 +168,21 @@ def generate_schedule():
             'message': str(e)
         }), 500
 
-@schedule_views.route('/api/schedule/<int:schedule_id>/publish', methods=['POST'])
-@jwt_required()
-@admin_required
-def publish_schedule_endpoint(schedule_id):
-    """Publish a schedule and notify all assigned staff"""
-    result = publish_schedule(schedule_id)
-    return jsonify(result)
-
-@schedule_views.route('/api/schedule/week/<int:week_number>', methods=['GET'])
-@jwt_required()
-def get_week_schedule(week_number):
-    """Get the schedule for a specific week"""
-    schedule = get_schedule_for_week(week_number)
-    if schedule:
-        return jsonify({'status': 'success', 'schedule': schedule})
-    else:
-        return jsonify({'status': 'error', 'message': 'Schedule not found'}), 404
-    
-    
 @schedule_views.route('/api/schedule/<int:schedule_id>/update', methods=['POST'])
 @jwt_required()
 @admin_required
 def update_schedule(schedule_id):
-    """Update an existing schedule with new staff assignments"""
+    """Update an existing schedule with new staff assignments and automatically publish"""
     try:
         data = request.json
         schedule_data = data.get('schedule', [])
         
-        # Get the schedule
-        schedule = Schedule.query.get(schedule_id)
-        if not schedule:
-            return jsonify({"status": "error", "message": "Schedule not found"})
+        # Use the updated function that also publishes the schedule
+        result = update_schedule_and_publish(schedule_id, schedule_data)
         
-        # Delete existing allocations for this schedule
-        Allocation.query.filter_by(schedule_id=schedule_id).delete()
-        db.session.commit()
-        
-        # Process each day and shift
-        for day_idx, day_data in enumerate(schedule_data):
-            day_name = day_data.get('day')
-            shifts = day_data.get('shifts', [])
-            
-            for time_idx, shift_data in enumerate(shifts):
-                time_slot = shift_data.get('time')
-                staff_ids = shift_data.get('staff', [])
-                
-                # Find the corresponding shift
-                date = schedule.start_date + timedelta(days=day_idx)
-                hour = time_idx + 9  # 9am to 4pm
-                
-                shift = Shift.query.filter_by(
-                    schedule_id=schedule_id,
-                    date=date,
-                ).filter(
-                    Shift.start_time.between(
-                        datetime.combine(date.date(), time(hour=hour)),
-                        datetime.combine(date.date(), time(hour=hour, minute=15))
-                    )
-                ).first()
-                
-                if not shift and staff_ids:
-                    # If no shift exists but we have staff assigned, create a new shift
-                    shift_start = datetime.combine(date.date(), time(hour=hour))
-                    shift_end = datetime.combine(date.date(), time(hour=hour+1))
-                    shift = Shift(date, shift_start, shift_end, schedule_id)
-                    db.session.add(shift)
-                    db.session.flush()  # Get the shift ID
-                elif not shift or not staff_ids:
-                    # Skip if no shift and no staff
-                    continue
-                
-                # Create allocations for each staff member
-                for staff_id in staff_ids:
-                    allocation = Allocation(staff_id, shift.id, schedule_id)
-                    db.session.add(allocation)
-        
-        # Commit all changes
-        db.session.commit()
-        
-        return jsonify({
-            "status": "success",
-            "message": "Schedule updated successfully",
-            "schedule_id": schedule_id
-        })
+        return jsonify(result)
     
     except Exception as e:
-        db.session.rollback()
         import traceback
         traceback.print_exc()
         

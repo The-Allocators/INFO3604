@@ -25,7 +25,7 @@ def dashboard():
     # Import the dashboard data controller functions
     from App.controllers.dashboard import get_dashboard_data
     
-    # Get all the data needed for the dashboard
+    # Get all the data needed for the dashboard (with the latest published schedule)
     dashboard_data = get_dashboard_data(username)
     
     if not dashboard_data:
