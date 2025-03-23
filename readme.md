@@ -3,7 +3,7 @@ The UWI DCIT Help Desk is currently managed manually, and our project aims to cr
 
 To achieve this goal, we created a framework that can accept an optimization model to generate schedules, this framework is made in such a way that different models can be swapped in and out to deal with different situations.
 
-## The Model
+## The Help Desk Model
 This is currently the model that is being used for the Help Desk website:  
 
 $$
@@ -48,7 +48,9 @@ Where:
 ```bash
 $ pip install -r requirements.txt
 ```
+## How to Change Models
 
+add this 
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/The-Allocators/INFO3604)
 <a href="https://render.com/deploy?repo=https://github.com/uwidcit/flaskmvc">
