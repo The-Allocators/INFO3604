@@ -10,149 +10,274 @@ from App.models import (
 from App.database import db
 from App.controllers.notification import notify_schedule_published
 
-def help_desk_scheduler(I, J, K):
-    # Using a CP-SAT model
-    model = cp_model.CpModel()
+def help_desk_scheduler(start_date=None, end_date=None, week_number=None):
+    """
+    Generate a help desk schedule using actual availability data from the database.
     
-    # --- Data ---
-    # Hard coded ranges for staff, shift and course indexes
-
-    # Assuming staff can help with all courses
-    t = {}
-    for i in range(I):
-        for k in range(K):
-            t[i, k] = 1
-    
-    # Minimum desired number of tutors for each shift and course is 2
-    d = {}
-    for j in range(J):
-        for k in range(K):
-            d[j, k] = 2
-    
-    # Default weight = d
-    w = {}
-    for j in range(J):
-        for k in range(K):
-            w[j, k] = d[j, k]
-
-    # Hard coded availability data
-    a = {}
-    a = [
-        [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
-        [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
-        [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], 
-        [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], 
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ]
-    
-    # Hard coded minimum shifts
-    r = {}
-    r = [4, 4, 4, 4, 4, 4, 4, 4, 2, 4]
-
-    # --- Variables ---
-    x = {}
-    for i in range(I):
+    Args:
+        start_date: Start date for the schedule (datetime object)
+        end_date: End date for the schedule (datetime object)
+        week_number: Week number for this schedule
+        
+    Returns:
+        Dictionary with the schedule information
+    """
+    try:
+        # --- Get actual data from the database ---
+        # If no dates provided, default to next week
+        if not start_date:
+            today = datetime.utcnow()
+            # Get the next Monday
+            days_ahead = (0 - today.weekday()) % 7
+            if days_ahead == 0:
+                days_ahead = 7  # If today is Monday, go to next Monday
+            start_date = today + timedelta(days=days_ahead)
+            
+        if not end_date:
+            # Default to 5 days (Monday-Friday)
+            end_date = start_date + timedelta(days=4)
+            
+        if not week_number:
+            week_number = start_date.isocalendar()[1]  # ISO week number
+            
+        print(f"Generating schedule for week {week_number}: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Get all active help desk assistants
+        assistants = HelpDeskAssistant.query.filter_by(active=True).all()
+        if not assistants:
+            return {
+                'status': 'error',
+                'message': 'No active assistants found'
+            }
+        
+        # Map to keep track of assistant names by username
+        assistant_names = {}
+        for assistant in assistants:
+            student = Student.query.get(assistant.username)
+            if student:
+                assistant_names[assistant.username] = student.name if student.name else assistant.username
+            else:
+                assistant_names[assistant.username] = assistant.username
+        
+        # Get availability for each assistant
+        availability_map = {}
+        for assistant in assistants:
+            # Get all availability records for this assistant
+            availabilities = Availability.query.filter_by(username=assistant.username).all()
+            
+            # Initialize empty availability grid (5 days x 8 hours)
+            # Represents Monday-Friday, 9am-5pm
+            assistant_availability = [[0 for _ in range(8)] for _ in range(5)]
+            
+            # Fill in the availability grid
+            for avail in availabilities:
+                day = avail.day_of_week  # 0=Monday, 4=Friday
+                if day < 0 or day > 4:  # Skip weekends or invalid days
+                    continue
+                    
+                # Convert time to hour index (9am = 0, 10am = 1, etc.)
+                if avail.start_time:
+                    start_hour = avail.start_time.hour
+                    if start_hour >= 9 and start_hour < 17:
+                        hour_idx = start_hour - 9
+                        # Mark as available (assuming 1-hour slots)
+                        assistant_availability[day][hour_idx] = 1
+            
+            # Store the availability grid for this assistant
+            availability_map[assistant.username] = assistant_availability
+        
+        # --- Setup CP-SAT model ---
+        model = cp_model.CpModel()
+        
+        # Get course capabilities for each assistant
+        course_capabilities = {}
+        all_courses = [course.code for course in Course.query.all()]
+        
+        for assistant in assistants:
+            # Get all course capabilities for this assistant
+            capabilities = CourseCapability.query.filter_by(assistant_username=assistant.username).all()
+            
+            # Initialize with all courses set to 0 (not capable)
+            assistant_capabilities = {course: 0 for course in all_courses}
+            
+            # Mark the courses this assistant can help with
+            for capability in capabilities:
+                assistant_capabilities[capability.course_code] = 1
+                
+            # Store the capabilities for this assistant
+            course_capabilities[assistant.username] = assistant_capabilities
+        
+        # Initialize parameters for the model
+        I = len(assistants)  # Number of assistants
+        J = 5 * 8  # Number of shifts (5 days x 8 hours)
+        K = len(all_courses)  # Number of courses
+        
+        # Create a mapping from assistant username to index
+        assistant_index = {assistant.username: i for i, assistant in enumerate(assistants)}
+        
+        # Create a mapping from course code to index
+        course_index = {course: k for k, course in enumerate(all_courses)}
+        
+        # Initialize t_i_k matrix (staff i can help with course k)
+        t = {}
+        for i, assistant in enumerate(assistants):
+            for k, course in enumerate(all_courses):
+                capability = course_capabilities[assistant.username].get(course, 0)
+                t[i, k] = capability
+        
+        # Initialize a_i_j matrix (staff i is available for shift j)
+        a = {}
+        for i, assistant in enumerate(assistants):
+            availability = availability_map[assistant.username]
+            for day in range(5):  # Monday to Friday
+                for hour in range(8):  # 9am to 5pm
+                    j = day * 8 + hour  # Shift index
+                    a[i, j] = availability[day][hour]
+        
+        # Initialize d_j_k matrix (desired tutors for shift j and course k)
+        # Default to 2 tutors for each course in each shift
+        d = {}
         for j in range(J):
-            x[i, j] = model.NewBoolVar(f'x_{i}_{j}')
-    
-    # --- Objective Function ---
-    objective = []
-    for j in range(J):
-        for k in range(K):
-            assigned_tutors = sum(x[i, j] * t[i, k] for i in range(I))
-            objective.append((d[j, k] - assigned_tutors) * w[j, k])
-    
-    model.Minimize(sum(objective))
-
-    # --- Constraints ---
-    # Constraint 1: Σxij * tik ≤ djk for all j,k pairs
-    for j in range(J):
-        for k in range(K):
-            constraint = sum(x[i, j] * t[i, k] for i in range(I))
-            model.Add(constraint <= d[j, k])
-    
-    # Constraint 2: Σxij >= 4 for all i
-    for i in range(I):
-        constraint = sum(x[i, j] for j in range(J))
-        model.Add(constraint >= r[i])
-    
-    # Constraint 3: Σxij >= 2 for all j
-    for j in range(J):
-        constraint = sum(x[i, j] for i in range(I))
-        
-        # Variable for constraint == 0
-        weight_zero = model.NewBoolVar(f'weight_zero_{j}')
-        model.Add(constraint == 0).OnlyEnforceIf(weight_zero)
-        
-        # Variable for constraint == 1
-        weight_one = model.NewBoolVar(f'weight_one_{j}')
-        model.Add(constraint == 1).OnlyEnforceIf(weight_one)
-        
-        # Adjusted constraint based on weighted values of availability less than 2
-        model.Add(constraint + (2 * weight_zero + weight_one) >= 2)
-    
-    # Constraint 4: xij <= aij for all i
-    for i in range(I):
+            for k in range(K):
+                d[j, k] = 2
+                
+        # Initialize w_j_k matrix (weights for each shift and course)
+        # Default weight = d_j_k
+        w = {}
         for j in range(J):
-            model.Add(x[i, j] <= a[i][j])
-
-    # --- Solve ---
-    solver = cp_model.CpSolver()
-    status = solver.Solve(model)
-
-    if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-        assignments = {}
+            for k in range(K):
+                w[j, k] = d[j, k]
         
+        # Initialize minimum shifts per assistant (r_i)
+        # Use the hours_minimum from the database
+        r = {}
+        for i, assistant in enumerate(assistants):
+            r[i] = assistant.hours_minimum
+        
+        # --- Create Variables ---
+        x = {}  # x[i, j] = 1 if staff i is assigned to shift j
         for i in range(I):
             for j in range(J):
-                if solver.Value(x[i, j]) == 1:
-                    if j not in assignments:
-                        assignments[j] = []
-                    assignments[j].append(i)
+                x[i, j] = model.NewBoolVar(f'x_{i}_{j}')
         
-        return {
-            'status': 'success',
-            'staff_index': {
-                0: 'Daniel Rasheed',
-                1: 'Michelle Liu',
-                2: 'Stayaan Maharaj',
-                3: 'Daniel Yatali',
-                4: 'Satish Maharaj',
-                5: 'Selena Madrey',
-                6: 'Veron Ramkissoon',
-                7: 'Tamika Ramkissoon',
-                8: 'Samuel Mahadeo',
-                9: 'Neha Maharaj'
-            },
-            'assignments': assignments
-        }
-    else:
-        message = 'No solution found.'
-        if status == cp_model.INFEASIBLE:
-            message = 'Probleam is infeasible.'
-        elif status == cp_model.MODEL_INVALID:
-            message = 'Model is invalid.'
-        elif status == cp_model.UNKNOWN:
-            message = 'Solver status is unknown.'
+        # --- Objective Function ---
+        objective_terms = []
+        for j in range(J):
+            for k in range(K):
+                # For each shift and course, calculate the number of assigned tutors who can teach it
+                assigned_tutors = sum(x[i, j] * t[i, k] for i in range(I))
+                
+                # Create a variable for the shortfall
+                shortfall = model.NewIntVar(0, I, f'shortfall_{j}_{k}')
+                model.Add(shortfall >= d[j, k] - assigned_tutors)
+                
+                # Add weighted shortfall to objective
+                objective_terms.append(shortfall * w[j, k])
+        
+        model.Minimize(sum(objective_terms))
+        
+        # --- Constraints ---
+        # Constraint 1: Σxij * tik ≤ djk for all j,k pairs
+        for j in range(J):
+            for k in range(K):
+                constraint = sum(x[i, j] * t[i, k] for i in range(I))
+                model.Add(constraint <= d[j, k])
+        
+        # Constraint 2: Σxij >= r_i for all i
+        for i in range(I):
+            constraint = sum(x[i, j] for j in range(J))
+            model.Add(constraint >= r[i])
+        
+        # Constraint 3: Each shift must have at least 2 assistants
+        for j in range(J):
+            constraint = sum(x[i, j] for i in range(I))
+            model.Add(constraint >= 2)
+        
+        # Constraint 4: xij <= aij for all i,j
+        for i in range(I):
+            for j in range(J):
+                model.Add(x[i, j] <= a[i, j])
+        
+        # --- Solve ---
+        solver = cp_model.CpSolver()
+        status = solver.Solve(model)
+        
+        if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+            # Create a mapping from staff index to name/username
+            staff_index = {i: assistant.username for i, assistant in enumerate(assistants)}
+            staff_names = {i: assistant_names[assistant.username] for i, assistant in enumerate(assistants)}
+            
+            # Create a schedule assignment by shift
+            assignments = {}
+            for j in range(J):
+                staff_assigned = []
+                for i in range(I):
+                    if solver.Value(x[i, j]) == 1:
+                        staff_assigned.append(i)
+                assignments[j] = staff_assigned
+            
+            # Create a new Schedule object
+            schedule = Schedule(week_number, start_date, end_date)
+            db.session.add(schedule)
+            db.session.flush()  # Get the schedule ID
+            
+            # Create shift objects and allocations
+            for day in range(5):  # Monday to Friday
+                date = start_date + timedelta(days=day)
+                for hour in range(8):  # 9am to 5pm
+                    hour_time = hour + 9  # Convert to actual hour (9am to 5pm)
+                    
+                    # Create the shift
+                    shift_start = datetime.combine(date.date(), datetime.min.time()) + timedelta(hours=hour_time)
+                    shift_end = shift_start + timedelta(hours=1)
+                    
+                    shift = Shift(date, shift_start, shift_end, schedule.id)
+                    db.session.add(shift)
+                    db.session.flush()  # Get the shift ID
+                    
+                    # Assign staff to this shift
+                    j = day * 8 + hour  # Shift index
+                    for i in assignments.get(j, []):
+                        assistant_username = staff_index[i]
+                        allocation = Allocation(assistant_username, shift.id, schedule.id)
+                        db.session.add(allocation)
+            
+            # Commit the database changes
+            db.session.commit()
+            
+            return {
+                'status': 'success',
+                'schedule_id': schedule.id,
+                'staff_index': staff_names,
+                'assignments': assignments,
+                'message': 'Schedule generated successfully'
+            }
+        else:
+            message = 'No solution found.'
+            if status == cp_model.INFEASIBLE:
+                message = 'Problem is infeasible with current constraints.'
+            elif status == cp_model.MODEL_INVALID:
+                message = 'Model is invalid.'
+            elif status == cp_model.UNKNOWN:
+                message = 'Solver status is unknown.'
+            
+            return {
+                'status': 'error',
+                'message': message
+            }
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         
         return {
             'status': 'error',
-            'message': message
+            'message': str(e)
         }
-
-
-def lab_assistant_scheduler():
-    pass
-
 
 def generate_help_desk_schedule(week_number, start_date, semester_id=None):
     """
-    Generate a help desk schedule using actual database models.
+    A wrapper function that calls the new help_desk_scheduler and handles any additional setup.
     
     Args:
         week_number: The week number for this schedule
@@ -163,129 +288,27 @@ def generate_help_desk_schedule(week_number, start_date, semester_id=None):
         A dictionary with the schedule information
     """
     try:
-        # Create the schedule object
-        schedule = Schedule(week_number, start_date, semester_id=semester_id)
-        db.session.add(schedule)
-        db.session.flush()  # Get the schedule ID without committing yet
+        # Calculate end date (5 days from start_date)
+        end_date = start_date + timedelta(days=4)
         
-        # Generate shifts for the schedule (Monday-Friday)
-        shifts = []
-        for day in range(5):  # 0=Monday through 4=Friday
-            date = start_date + timedelta(days=day)
-            
-            # Generate 8 hourly shifts per day (9am-5pm)
-            for hour in range(9, 17):  # 9am through 4pm
-                shift_start = datetime.combine(date.date(), datetime.min.time()) + timedelta(hours=hour)
-                shift_end = shift_start + timedelta(hours=1)
-                
-                shift = Shift(date, shift_start, shift_end, schedule.id)
-                db.session.add(shift)
-                db.session.flush()  # Get the shift ID
-                shifts.append(shift)
-                
-                # Set course demands for each shift
-                # In a real application, you would get these from your requirements
-                active_courses = Course.query.all()
-                for course in active_courses:
-                    # Default requirement is 2 tutors per course
-                    shift.add_course_demand(course.code, 2, 2)
+        # Call the updated scheduler
+        result = help_desk_scheduler(start_date, end_date, week_number)
         
-        # Get all active assistants
-        assistants = HelpDeskAssistant.query.filter_by(active=True).all()
-        if not assistants:
-            db.session.rollback()
-            return {"status": "error", "message": "No active assistants found"}
-            
-        # Now we'll use CP-SAT model to generate optimal schedule
-        model = cp_model.CpModel()
+        # Handle errors
+        if result['status'] != 'success':
+            return result
         
-        # --- Variables ---
-        x = {}  # x[i,j] = 1 if assistant i is assigned to shift j
-        for assistant in assistants:
-            for shift in shifts:
-                x[assistant.username, shift.id] = model.NewBoolVar(f'x_{assistant.username}_{shift.id}')
-        
-        # --- Objective Function ---
-        # We'll minimize the sum of the weighted course demand not met
-        objective_terms = []
-        
-        # For each shift and course demand
-        for shift in shifts:
-            for demand in shift.course_demands:
-                course_code = demand.course_code
-                
-                # For each course, calculate the number of assigned assistants who can teach it
-                assistants_for_course = sum(
-                    x[a.username, shift.id] 
-                    for a in assistants 
-                    if any(c.course_code == course_code for c in a.course_capabilities)
-                )
-                
-                # Objective: minimize shortfall weighted by importance
-                shortfall = model.NewIntVar(0, len(assistants), f'shortfall_{shift.id}_{course_code}')
-                model.Add(shortfall >= demand.tutors_required - assistants_for_course)
-                objective_terms.append(shortfall * demand.weight)
-        
-        model.Minimize(sum(objective_terms))
-        
-        # --- Constraints ---
-        # Constraint 1: Each assistant must be assigned to at least min_hours shifts
-        for assistant in assistants:
-            min_hours = assistant.hours_minimum
-            model.Add(sum(x[assistant.username, s.id] for s in shifts) >= min_hours)
-        
-        # Constraint 2: Each shift must have at least 2 assistants
-        for shift in shifts:
-            model.Add(sum(x[a.username, shift.id] for a in assistants) >= 2)
-        
-        # Constraint 3: Assistants can only be assigned to shifts they are available for
-        for assistant in assistants:
-            availabilities = Availability.query.filter_by(username=assistant.username).all()
-            
-            for shift in shifts:
-                # Check if this assistant is available for this shift
-                is_available = False
-                for avail in availabilities:
-                    if avail.is_available_for_shift(shift):
-                        is_available = True
-                        break
-                
-                if not is_available:
-                    model.Add(x[assistant.username, shift.id] == 0)
-        
-        # --- Solve ---
-        solver = cp_model.CpSolver()
-        status = solver.Solve(model)
-        
-        if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-            # Create allocations for the assignments
-            for assistant in assistants:
-                for shift in shifts:
-                    if solver.Value(x[assistant.username, shift.id]) == 1:
-                        allocation = Allocation(assistant.username, shift.id, schedule.id)
-                        db.session.add(allocation)
-            
-            # Commit the schedule and all related objects
-            db.session.commit()
-            
-            return {
-                "status": "success",
-                "schedule_id": schedule.id,
-                "message": "Schedule generated successfully"
-            }
-        else:
-            db.session.rollback()
-            message = 'No solution found.'
-            if status == cp_model.INFEASIBLE:
-                message = 'Problem is infeasible with current constraints.'
-            
-            return {
-                "status": "error",
-                "message": message
-            }
+        # Schedule was created successfully
+        return {
+            "status": "success",
+            "schedule_id": result['schedule_id'],
+            "message": "Schedule generated successfully"
+        }
     
     except Exception as e:
-        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        
         return {
             "status": "error",
             "message": str(e)
@@ -313,22 +336,6 @@ def publish_schedule(schedule_id):
             
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-def get_assistants_for_shift(shift_id):
-    """Get all assistants assigned to a specific shift"""
-    allocations = Allocation.query.filter_by(shift_id=shift_id).all()
-    assistants = []
-    
-    for allocation in allocations:
-        student = Student.query.get(allocation.username)
-        if student:
-            assistants.append({
-                "username": student.username,
-                "name": student.get_name(),
-                "degree": student.degree
-            })
-    
-    return assistants
 
 def get_schedule_for_week(week_number, semester_id=None):
     """Get a detailed schedule for a specific week"""
@@ -389,3 +396,19 @@ def get_schedule_for_week(week_number, semester_id=None):
         "is_published": schedule.is_published,
         "days": days
     }
+
+def get_assistants_for_shift(shift_id):
+    """Get all assistants assigned to a specific shift"""
+    allocations = Allocation.query.filter_by(shift_id=shift_id).all()
+    assistants = []
+    
+    for allocation in allocations:
+        student = Student.query.get(allocation.username)
+        if student:
+            assistants.append({
+                "username": student.username,
+                "name": student.get_name(),
+                "degree": student.degree
+            })
+    
+    return assistants

@@ -8,8 +8,17 @@ document.addEventListener('DOMContentLoaded', function() {
   // --- Generate Schedule Button ---
   initializeGenerateButton();
   
+  // --- Publish Schedule Button ---
+  initializePublishButton();
+  
+  // --- Save Changes Button ---
+  initializeSaveChangesButton();
+  
   // --- Flash Message Handling ---
   handleFlashMessages();
+  
+  // --- Load the current schedule automatically ---
+  loadCurrentSchedule();
 });
 
 function handleFlashMessages() {
@@ -22,6 +31,88 @@ function handleFlashMessages() {
       message.remove();
     }, 5000);
   });
+}
+
+function loadCurrentSchedule() {
+  // Show the loading indicator
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  loadingIndicator.style.display = 'flex';
+  
+  // Call the API to get the current schedule
+  fetch('/api/schedule/details')
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(errorData => {
+          throw new Error(errorData.message || 'Failed to load schedule.');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      loadingIndicator.style.display = 'none';
+      
+      if (data.status === 'success') {
+        // Store the schedule ID for saving changes and publishing
+        if (data.schedule_id) {
+          document.body.setAttribute('data-schedule-id', data.schedule_id);
+        }
+        
+        // Check if schedule is already published
+        if (data.is_published) {
+          document.getElementById('publishSchedule').disabled = true;
+          document.getElementById('publishSchedule').textContent = 'Published';
+        } else {
+          document.getElementById('publishSchedule').disabled = false;
+          document.getElementById('publishSchedule').textContent = 'Publish Schedule';
+        }
+        
+        renderSchedule(data.schedule, data.staff_index);
+        
+        // Show schedule stats
+        const statsDiv = document.getElementById('scheduleStats');
+        statsDiv.style.display = 'block';
+        
+        // Add stats
+        const statsList = document.getElementById('statsList');
+        statsList.innerHTML = `
+          <div class="stat-item">
+            <div class="stat-label">Total Staff:</div>
+            <div class="stat-value">${Object.keys(data.staff_index).length}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Total Shifts:</div>
+            <div class="stat-value">40</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Schedule Type:</div>
+            <div class="stat-value">Help Desk</div>
+          </div>
+        `;
+      } else {
+        // No schedule found, hide loading indicator and show empty message
+        const scheduleBody = document.getElementById('scheduleBody');
+        scheduleBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-schedule">
+              <p>No schedule loaded. Click "Generate Schedule" to create a new schedule.</p>
+            </td>
+          </tr>
+        `;
+      }
+    })
+    .catch(error => {
+      loadingIndicator.style.display = 'none';
+      console.error('Error loading schedule:', error);
+      // Show error message
+      const scheduleBody = document.getElementById('scheduleBody');
+      scheduleBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="empty-schedule">
+            <p>Error loading schedule: ${error.message || 'Unknown error'}. Click "Generate Schedule" to create a new schedule.</p>
+          </td>
+        </tr>
+      `;
+    });
 }
 
 function initializeDragAndDrop() {
@@ -137,6 +228,15 @@ function initializeDragAndDrop() {
         
         // Update counter
         updateStaffCounter(cell);
+        
+        // Mark the schedule as having unsaved changes
+        document.body.setAttribute('data-has-changes', 'true');
+        
+        // Show the save changes button
+        const saveChangesBtn = document.getElementById('saveChanges');
+        if (saveChangesBtn) {
+          saveChangesBtn.style.display = 'inline-block';
+        }
       } catch (error) {
         console.error('Error parsing staff data:', error);
       }
@@ -160,6 +260,15 @@ function addStaffToContainer(container, staffId, staffName) {
     e.stopPropagation();
     staffNameElem.remove();
     updateStaffCounter(container.closest('.schedule-cell'));
+    
+    // Mark the schedule as having unsaved changes
+    document.body.setAttribute('data-has-changes', 'true');
+    
+    // Show the save changes button
+    const saveChangesBtn = document.getElementById('saveChanges');
+    if (saveChangesBtn) {
+      saveChangesBtn.style.display = 'inline-block';
+    }
   };
   staffNameElem.appendChild(removeButton);
   
@@ -252,46 +361,54 @@ function openStaffSearchModal(cell) {
 }
 
 function searchStaff(searchTerm) {
-  // Mock staff data - in a real app, this would come from an API call
-  const staffList = [
-    { id: 0, name: 'Daniel Rasheed' },
-    { id: 1, name: 'Michelle Liu' },
-    { id: 2, name: 'Stayaan Maharaj' },
-    { id: 3, name: 'Daniel Yatali' },
-    { id: 4, name: 'Satish Maharaj' },
-    { id: 5, name: 'Selena Madrey' },
-    { id: 6, name: 'Veron Ramkissoon' },
-    { id: 7, name: 'Tamika Ramkissoon' },
-    { id: 8, name: 'Samuel Mahadeo' },
-    { id: 9, name: 'Neha Maharaj' }
-  ];
-  
-  // Filter staff based on search term
-  const filteredStaff = staffList.filter(staff => 
-    staff.name.toLowerCase().includes(searchTerm)
-  );
-  
-  // Display results
+  // Show loading indicator
   const resultsContainer = document.getElementById('staffSearchResults');
-  resultsContainer.innerHTML = '';
+  resultsContainer.innerHTML = '<div class="loading">Loading staff...</div>';
   
-  if (filteredStaff.length === 0) {
-    resultsContainer.innerHTML = '<div class="search-result-item">No staff found</div>';
-    return;
-  }
-  
-  filteredStaff.forEach(staff => {
-    const resultItem = document.createElement('div');
-    resultItem.className = 'search-result-item';
-    resultItem.textContent = staff.name;
-    resultItem.setAttribute('data-staff-id', staff.id);
-    
-    resultItem.addEventListener('click', function() {
-      selectStaffMember(staff.id, staff.name);
+  // Fetch the staff data from the API
+  fetch('/api/staff')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to fetch staff data');
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to load staff data');
+      }
+      
+      // Filter staff based on search term
+      const filteredStaff = data.staff.filter(staff => 
+        staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        staff.id.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      
+      // Display results
+      resultsContainer.innerHTML = '';
+      
+      if (filteredStaff.length === 0) {
+        resultsContainer.innerHTML = '<div class="search-result-item">No staff found</div>';
+        return;
+      }
+      
+      filteredStaff.forEach(staff => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'search-result-item';
+        resultItem.textContent = staff.name;
+        resultItem.setAttribute('data-staff-id', staff.id);
+        
+        resultItem.addEventListener('click', function() {
+          selectStaffMember(staff.id, staff.name);
+        });
+        
+        resultsContainer.appendChild(resultItem);
+      });
+    })
+    .catch(error => {
+      console.error('Error loading staff data:', error);
+      resultsContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
     });
-    
-    resultsContainer.appendChild(resultItem);
-  });
 }
 
 function selectStaffMember(staffId, staffName) {
@@ -325,6 +442,15 @@ function selectStaffMember(staffId, staffName) {
     
     // Update counter
     updateStaffCounter(targetCell);
+    
+    // Mark the schedule as having unsaved changes
+    document.body.setAttribute('data-has-changes', 'true');
+    
+    // Show the save changes button
+    const saveChangesBtn = document.getElementById('saveChanges');
+    if (saveChangesBtn) {
+      saveChangesBtn.style.display = 'inline-block';
+    }
   }
   
   // Close the modal
@@ -335,54 +461,250 @@ function initializeGenerateButton() {
   const generateBtn = document.getElementById('generateSchedule');
   const loadingIndicator = document.getElementById('loadingIndicator');
   
+  // Add a "Save Changes" button next to the Generate button if it doesn't exist
+  const saveChangesBtn = document.createElement('button');
+  saveChangesBtn.className = 'btn btn-primary';
+  saveChangesBtn.id = 'saveChanges';
+  saveChangesBtn.textContent = 'Save Changes';
+  saveChangesBtn.style.display = 'none'; // Hide initially
+  
+  // Insert the save button after the generate button
+  generateBtn.parentNode.insertBefore(saveChangesBtn, generateBtn.nextSibling);
+  
   generateBtn.addEventListener('click', function() {
+    // Check if there are unsaved changes
+    if (document.body.getAttribute('data-has-changes') === 'true') {
+      if (!confirm('You have unsaved changes. Generating a new schedule will discard these changes. Continue?')) {
+        return;
+      }
+    }
+    
     loadingIndicator.style.display = 'flex';
     
-    fetch('/api/schedule/details')
-      .then(response => {
-        if (!response.ok) {
-          return response.json().then(errorData => {
-            throw new Error(errorData.message || 'Failed to generate schedule.');
-          });
-        }
-        return response.json();
+    // Get the current week
+    const currentDate = new Date();
+    const week = currentDate.getWeek();
+    
+    // Call the API to generate a new schedule
+    fetch('/api/schedule/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        week_number: week
       })
-      .then(data => {
+    })
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(errorData => {
+          throw new Error(errorData.message || 'Failed to generate schedule.');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.status === 'success') {
+        // Schedule generated successfully, now load it
+        loadCurrentSchedule();
+        // Reset the changes flag
+        document.body.removeAttribute('data-has-changes');
+        // Hide the save button
+        saveChangesBtn.style.display = 'none';
+      } else {
         loadingIndicator.style.display = 'none';
-        
-        if (data.status === 'success') {
-          renderSchedule(data.schedule, data.staff_index);
-          
-          // Show schedule stats
-          const statsDiv = document.getElementById('scheduleStats');
-          statsDiv.style.display = 'block';
-          
-          // Add stats
-          const statsList = document.getElementById('statsList');
-          statsList.innerHTML = `
-            <div class="stat-item">
-              <div class="stat-label">Total Staff:</div>
-              <div class="stat-value">${Object.keys(data.staff_index).length}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Total Shifts:</div>
-              <div class="stat-value">40</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Schedule Type:</div>
-              <div class="stat-value">Help Desk</div>
-            </div>
-          `;
-        } else {
-          alert(`Failed to generate schedule: ${data.message}`);
-        }
-      })
-      .catch(error => {
-        loadingIndicator.style.display = 'none';
-        console.error('Error generating schedule:', error);
-        alert(`An error occurred: ${error.message || 'Unknown error'}`);
-      });
+        alert(`Failed to generate schedule: ${data.message}`);
+      }
+    })
+    .catch(error => {
+      loadingIndicator.style.display = 'none';
+      console.error('Error generating schedule:', error);
+      alert(`An error occurred: ${error.message || 'Unknown error'}`);
+    });
   });
+}
+
+function initializePublishButton() {
+  const publishBtn = document.getElementById('publishSchedule');
+  
+  publishBtn.addEventListener('click', function() {
+    // Check if we have a schedule ID
+    const scheduleId = document.body.getAttribute('data-schedule-id');
+    
+    if (!scheduleId) {
+      alert('No schedule has been generated yet. Please generate a schedule first.');
+      return;
+    }
+    
+    // Check if there are unsaved changes
+    if (document.body.getAttribute('data-has-changes') === 'true') {
+      if (!confirm('You have unsaved changes. Please save your changes before publishing. Do you want to save now?')) {
+        return;
+      } else {
+        // Save changes first
+        saveScheduleChanges(() => {
+          // After saving, publish the schedule
+          publishSchedule(scheduleId);
+        });
+        return;
+      }
+    }
+    
+    // Confirm before publishing
+    if (!confirm('Are you sure you want to publish this schedule? This will notify all assigned staff.')) {
+      return;
+    }
+    
+    publishSchedule(scheduleId);
+  });
+}
+
+function publishSchedule(scheduleId) {
+  // Show loading state
+  const publishBtn = document.getElementById('publishSchedule');
+  publishBtn.disabled = true;
+  publishBtn.textContent = 'Publishing...';
+  
+  // Call the publish API
+  fetch(`/api/schedule/${scheduleId}/publish`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      // Update button state
+      publishBtn.textContent = 'Published';
+      alert('Schedule has been published and notifications sent to all assigned staff.');
+    } else {
+      // Reset button and show error
+      publishBtn.disabled = false;
+      publishBtn.textContent = 'Publish Schedule';
+      alert(`Failed to publish schedule: ${data.message}`);
+    }
+  })
+  .catch(error => {
+    console.error('Error publishing schedule:', error);
+    publishBtn.disabled = false;
+    publishBtn.textContent = 'Publish Schedule';
+    alert(`An error occurred: ${error.message || 'Unknown error'}`);
+  });
+}
+
+function initializeSaveChangesButton() {
+  // The button is created in initializeGenerateButton
+  const saveChangesBtn = document.getElementById('saveChanges');
+  if (!saveChangesBtn) return;
+  
+  saveChangesBtn.addEventListener('click', function() {
+    saveScheduleChanges();
+  });
+}
+
+function saveScheduleChanges(callback) {
+  // Get the schedule ID
+  const scheduleId = document.body.getAttribute('data-schedule-id');
+  if (!scheduleId) {
+    alert('No schedule loaded. Please generate a schedule first.');
+    return;
+  }
+  
+  // Show loading state
+  const saveChangesBtn = document.getElementById('saveChanges');
+  const originalText = saveChangesBtn.textContent;
+  saveChangesBtn.disabled = true;
+  saveChangesBtn.textContent = 'Saving...';
+  
+  // Collect the current schedule data
+  const scheduleData = collectScheduleData();
+  
+  // Call the API to save the changes
+  fetch(`/api/schedule/${scheduleId}/update`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(scheduleData)
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(errorData => {
+        throw new Error(errorData.message || 'Failed to save schedule changes.');
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    saveChangesBtn.disabled = false;
+    
+    if (data.status === 'success') {
+      // Reset the changes flag
+      document.body.removeAttribute('data-has-changes');
+      // Hide the save button
+      saveChangesBtn.style.display = 'none';
+      
+      alert('Schedule changes saved successfully.');
+      
+      // Call the callback if provided
+      if (callback && typeof callback === 'function') {
+        callback();
+      }
+    } else {
+      saveChangesBtn.textContent = originalText;
+      alert(`Failed to save changes: ${data.message}`);
+    }
+  })
+  .catch(error => {
+    console.error('Error saving schedule changes:', error);
+    saveChangesBtn.disabled = false;
+    saveChangesBtn.textContent = originalText;
+    alert(`An error occurred: ${error.message || 'Unknown error'}`);
+  });
+}
+
+function collectScheduleData() {
+  // Collect all the schedule data from the UI
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const timeSlots = ["9:00 am", "10:00 am", "11:00 am", "12:00 pm", 
+                     "1:00 pm", "2:00 pm", "3:00 pm", "4:00 pm"];
+  const schedule = [];
+  
+  // For each day
+  days.forEach((day, dayIndex) => {
+    const dayShifts = [];
+    
+    // For each time slot
+    timeSlots.forEach((timeSlot, timeIndex) => {
+      const cellId = `cell-${dayIndex}-${timeIndex}`;
+      const cell = document.getElementById(cellId);
+      
+      if (cell) {
+        const staffContainer = cell.querySelector('.staff-container');
+        const staffElements = staffContainer ? staffContainer.querySelectorAll('.staff-name') : [];
+        const staffIds = Array.from(staffElements).map(el => el.getAttribute('data-staff-id'));
+        
+        dayShifts.push({
+          time: timeSlot,
+          staff: staffIds
+        });
+      } else {
+        // If cell not found, add empty shift
+        dayShifts.push({
+          time: timeSlot,
+          staff: []
+        });
+      }
+    });
+    
+    schedule.push({
+      day: day,
+      shifts: dayShifts
+    });
+  });
+  
+  return { schedule };
 }
 
 function renderSchedule(schedule, staffIndex) {
@@ -459,3 +781,26 @@ function renderSchedule(schedule, staffIndex) {
     scheduleBody.appendChild(row);
   });
 }
+
+// Helper to get the week number
+Date.prototype.getWeek = function() {
+  // Create a copy of this date object
+  var target = new Date(this.valueOf());
+
+  // ISO week date weeks start on Monday, so correct the day number
+  var dayNum = (this.getDay() + 6) % 7;
+
+  // Set the target to the Thursday of this week
+  target.setDate(target.getDate() - dayNum + 3);
+
+  // ISO 8601 states that week 1 is the week with the first Thursday of that year
+  var jan4 = new Date(target.getFullYear(), 0, 4);
+
+  // Number of days from target date to jan 4
+  var dayDiff = (target - jan4) / 86400000;
+
+  // Calculate week number: Week 1 + number of weeks between target date and jan 4
+  var weekNum = 1 + Math.ceil(dayDiff / 7);
+
+  return weekNum;
+};
