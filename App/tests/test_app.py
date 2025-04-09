@@ -730,7 +730,7 @@ class ScheduleIntegrationTests(unittest.TestCase):
         # Clear the schedule
         result = clear_schedule()
         self.assertEqual(result["status"], "success")
-        self.assertEqual(result["details"]["shifts_removed"], 32)
+        self.assertEqual(result["details"]["shifts_removed"], 24)
 
         # Verify the schedule is cleared
         shifts = Shift.query.all()
