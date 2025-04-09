@@ -808,53 +808,8 @@ def get_current_schedule():
                 } for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
             ]
         }
-        
-    # Format the schedule for display
-    shifts_by_day = {}
-    
-    for shift in schedule.shifts:
-        day_idx = shift.date.weekday()  # 0=Monday, 6=Sunday
-        if day_idx >= 5:  # Skip weekend shifts
-            continue
-            
-        hour = shift.start_time.hour
-        
-        if day_idx not in shifts_by_day:
-            shifts_by_day[day_idx] = {}
-            
-        shifts_by_day[day_idx][hour] = {
-            "shift_id": shift.id,
-            "time": shift.formatted_time(),
-            "assistants": get_assistants_for_shift(shift.id)
-        }
-    
-    # Format into days array with shifts
-    days = []
-    for day_idx in range(5):  # Monday to Friday
-        day_date = schedule.start_date + timedelta(days=day_idx) if schedule.start_date else trinidad_now()
-        day_shifts = []
-        
-        if day_idx in shifts_by_day:
-            for hour in range(9, 17):  # 9am to 4pm
-                if hour in shifts_by_day[day_idx]:
-                    day_shifts.append(shifts_by_day[day_idx][hour])
-                else:
-                    day_shifts.append({
-                        "shift_id": None,
-                        "time": f"{hour}:00 - {hour+1}:00",
-                        "assistants": []
-                    })
-        
-        days.append({
-            "day": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][day_idx],
-            "date": day_date.strftime("%d %b"),
-            "shifts": day_shifts
-        })
-    
-    return {
-        "schedule_id": schedule.id,
-        "date_range": f"{schedule.start_date.strftime('%d %b')} - {schedule.end_date.strftime('%d %b, %Y')}" if schedule.start_date and schedule.end_date else "Current Schedule",
-        "is_published": schedule.is_published,
-        "days": days
-    }
+
+
+def generate_lab_assistant_schedule():
+    pass
 
