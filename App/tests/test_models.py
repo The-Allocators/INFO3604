@@ -501,6 +501,19 @@ class ShiftUnitTests(unittest.TestCase):
         self.assertEqual(self.shift.course_demands[0].weight, 5)'''
 
 class HelpDeskAssistantModelUnitTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Create all tables before running tests
+        from App.database import db
+        db.create_all()
+
+    @classmethod
+    def tearDownClass(cls):
+        # Drop all tables after tests
+        from App.database import db
+        db.session.remove()
+        db.drop_all()
+    
     def test_create_help_desk_assistant_default_values(self):
         Student.query = MagicMock()
         Student.query.get.return_value = None
